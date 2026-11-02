@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: crm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-crm}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-crm}
+      POSTGRES_DB: ${DB_NAME:-crm}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - crm_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: crm-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - crm_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  crm_db_data:
+  crm_redis_data:
