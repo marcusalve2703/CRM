@@ -1,0 +1,206 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  USER
+}
+
+enum ChannelType {
+  WHATSAPP
+  INSTAGRAM
+  FACEBOOK
+  TELEGRAM
+}
+
+enum DealStage {
+  PROSPECTING
+  QUALIFICATION
+  PROPOSAL
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  plan      String   @default("free")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  contacts     Contact[]
+  companies    Company[]
+  deals        Deal[]
+  pipelines    Pipeline[]
+  interactions Interaction[]
+  integrations Integration[]
+  prospections Prospection[]
+
+  @@map("organizations")
+}
+
+model User {
+  id             String       @id @default(cuid())
+  name           String
+  email          String       @unique
+  passwordHash   String
+  role           Role         @default(USER)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  assignedDeals Deal[]
+  @@map("users")
+}
+
+model Company {
+  id             String       @id @default(cuid())
+  name           String
+  cnpj           String?
+  segment        String?
+  phone          String?
+  email          String?
+  website        String?
+  address        String?
+  city           String?
+  state          String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  contacts Contact[]
+  @@map("companies")
+}
+
+model Contact {
+  id             String       @id @default(cuid())
+  name           String
+  email          String?
+  phone          String?
+  origin         String?      @default("manual")
+  tags           String[]     @default([])
+  notes          String?
+  companyId      String?
+  company        Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  deals        Deal[]
+  interactions Interaction[]
+  messages     Message[]
+
+  @@map("contacts")
+}
+
+model Pipeline {
+  id             String   @id @default(cuid())
+  name           String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stages         Stage[]
+  createdAt      DateTime @default(now())
+
+  @@map("pipelines")
+}
+
+model Stage {
+  id         String   @id @default(cuid())
+  name       String
+  order      Int
+  pipelineId String
+  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals      Deal[]
+
+  @@map("stages")
+}
+
+model Deal {
+  id             String       @id @default(cuid())
+  title          String
+  value          Float        @default(0)
+  stageId        String
+  stage          Stage        @relation(fields: [stageId], references: [id])
+  contactId      String?
+  contact        Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assignedToId   String?
+  assignedTo     User?        @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status         DealStage    @default(PROSPECTING)
+  nextActionDate DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("deals")
+}
+
+model Interaction {
+  id             String       @id @default(cuid())
+  type           String
+  content        String
+  contactId      String
+  contact        Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@map("interactions")
+}
+
+model Message {
+  id          String      @id @default(cuid())
+  channel     ChannelType
+  externalId  String?
+  sender      String
+  recipient   String
+  content     String
+  direction   String      // INBOUND / OUTBOUND
+  status      String      @default("SENT")
+  contactId   String?
+  contact     Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  createdAt   DateTime    @default(now())
+
+  @@map("messages")
+}
+
+model Integration {
+  id             String       @id @default(cuid())
+  type           ChannelType
+  name           String
+  status         String       @default("DISCONNECTED") // CONNECTED, DISCONNECTED, ERROR
+  credentials    String?      // JSON criptografado/estruturado
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("integrations")
+}
+
+model Prospection {
+  id             String       @id @default(cuid())
+  query          String
+  segment        String?
+  city           String?
+  state          String?
+  source         String       // BRASIL_API, SEARCH_ENGINE, OVERPASS
+  resultsCount   Int          @default(0)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@map("prospections")
+}
